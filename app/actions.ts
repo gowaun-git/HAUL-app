@@ -7,25 +7,28 @@ const openai = new OpenAI({
 });
 
 export async function analyzeItem(base64Image: string) {
+  // 1. Safety check to prevent Vercel build crash
+  if (!process.env.OPENAI_API_KEY) {
+    return { title: "Configuration Error", valueRange: "N/A", description: "API Key missing in Vercel." };
+  }
+
   try {
-    // Note: We use a search-capable model here
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-search-preview", 
+      model: "gpt-4o", 
       messages: [
         {
           role: "user",
           content: [
             { 
               type: "text", 
-              text: `1. Identify the specific item in this photo.
-                     2. Use the search tool to find CURRENT SOLD prices on eBay, Mercari, and Poshmark for this exact model.
-                     3. Distinguish between 'Listed' prices and 'Sold' prices.
-                     4. Return ONLY a JSON object:
-                        - title: Specific brand/model
-                        - confidence: 0-100%
-                        - valueRange: Real sold price range (e.g. '$45-$60')
-                        - platforms: Best 3 platforms for this item
-                        - description: A tip on how you verified the price via search.` 
+              text: `Identify the item for a reseller. 
+                     Use your internal search capabilities to find CURRENT SOLD prices on eBay and other marketplaces.
+                     Return ONLY a JSON object:
+                     - title: Specific brand/model
+                     - confidence: 0-100%
+                     - valueRange: Real sold price range (e.g. '$20-$35')
+                     - platforms: Best 3 platforms
+                     - description: Mention that you verified this against current market listings.` 
             },
             {
               type: "image_url",
@@ -34,8 +37,6 @@ export async function analyzeItem(base64Image: string) {
           ],
         },
       ],
-      // This is the magic "switch" that lets the AI use the internet
-      tools: [{ type: "web_search" }], 
       response_format: { type: "json_object" },
     });
 
@@ -43,6 +44,6 @@ export async function analyzeItem(base64Image: string) {
     return JSON.parse(content || "{}");
   } catch (error) {
     console.error("AI Error:", error);
-    return { title: "Error", valueRange: "N/A", description: "Search failed. Check API credits." };
+    return { title: "Error", valueRange: "N/A", description: "Analysis failed." };
   }
 }
