@@ -8,25 +8,24 @@ const openai = new OpenAI({
 
 export async function analyzeItem(base64Image: string) {
   try {
+    // Note: We use a search-capable model here
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o-search-preview", 
       messages: [
         {
           role: "user",
           content: [
             { 
               type: "text", 
-              text: `Identify this item for a professional reseller.
-              
-              CRITICAL TASK: Determine the EXACT edition. For books like Taschen, check if it is the XXL/Collector's edition (high value) vs. the standard/40th anniversary edition (low value). 
-              Use physical cues in the image (thickness, scale relative to hands/objects) to distinguish.
-
-              Return ONLY a JSON object:
-              - title: Full specific name (e.g. 'Taschen Surfing 1778-Today XXL Edition')
-              - confidence: 0-100%
-              - valueRange: Realistic range based on SOLD listings (e.g. '$800-$1,200')
-              - platforms: Where to find high-end collectors
-              - description: Note why this specific edition is valuable and how to verify it.` 
+              text: `1. Identify the specific item in this photo.
+                     2. Use the search tool to find CURRENT SOLD prices on eBay, Mercari, and Poshmark for this exact model.
+                     3. Distinguish between 'Listed' prices and 'Sold' prices.
+                     4. Return ONLY a JSON object:
+                        - title: Specific brand/model
+                        - confidence: 0-100%
+                        - valueRange: Real sold price range (e.g. '$45-$60')
+                        - platforms: Best 3 platforms for this item
+                        - description: A tip on how you verified the price via search.` 
             },
             {
               type: "image_url",
@@ -35,6 +34,8 @@ export async function analyzeItem(base64Image: string) {
           ],
         },
       ],
+      // This is the magic "switch" that lets the AI use the internet
+      tools: [{ type: "web_search" }], 
       response_format: { type: "json_object" },
     });
 
@@ -42,6 +43,6 @@ export async function analyzeItem(base64Image: string) {
     return JSON.parse(content || "{}");
   } catch (error) {
     console.error("AI Error:", error);
-    return { title: "Error", valueRange: "N/A", description: "Error analyzing." };
+    return { title: "Error", valueRange: "N/A", description: "Search failed. Check API credits." };
   }
 }
